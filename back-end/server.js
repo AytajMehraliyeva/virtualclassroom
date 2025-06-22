@@ -3,17 +3,19 @@ const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const { Server } = require('socket.io');
-const Message = require('./models/Message'); 
+const Message = require('./models/Message');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// MongoDB bağlantısı
 mongoose.connect('mongodb+srv://tu7lzxxdc:aytac123@cluster0.fvv4h2i.mongodb.net/', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
 
+// HTTP və Socket.io server qurulması
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -22,12 +24,13 @@ const io = new Server(server, {
   }
 });
 
-
+// REST API - otağa aid mesajları çək
 app.get('/messages/:roomId', async (req, res) => {
   const messages = await Message.find({ room: req.params.roomId });
   res.json(messages);
 });
 
+// Socket.io hadisələri
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
@@ -48,11 +51,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(` User disconnected: ${socket.id}`);
+    console.log(`User disconnected: ${socket.id}`);
   });
 });
 
-server.listen(3001, () => {
-  console.log(' Server started on port 3001');
-}); 
- 
+// Render-da düzgün port üçün
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+});
