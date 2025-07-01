@@ -5,25 +5,24 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 
-// ROUTES
+// ROUTES (müvafiq sən öz fayllarını əlavə etməlisən)
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const userRoutes = require('./routes/userRoutes');
 
-// APP
+// EXPRESS APP
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
-});
+// CORS OPTIONS
+const corsOptions = {
+  origin: 'https://virtualclassroom-sb1c.onrender.com', // frontend ünvanını dəyişə bilərsən
+  methods: ['GET', 'POST'],
+  credentials: true,
+};
 
-// MIDDLEWARE
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
@@ -34,35 +33,48 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/user', userRoutes);
 
 app.get('/', (req, res) => {
-  res.send('✅ Virtual Classroom API is running');
+  res.send('Virtual Classroom API is running');
 });
 
-// DATABASE
+// MONGOOSE CONNECT
 mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// --- SOCKET.IO LOGIC ---
+// SOCKET.IO SETUP
+const io = new Server(server, {
+  cors: corsOptions
+});
 
-const roomUsers = {};
+// Otaq istifadəçilərinin saxlanması
+const roomUsers = {};  // { roomId: [ { username, socketId } ] }
 
-// CONNECTION
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // İstifadəçi otağa qoşulur
-  socket.on('join-room', ({ roomId, username, avatar }) => {
+  socket.on('join-room', ({ roomId, username }) => {
+    if (!username || username.trim() === '') {
+      username = `Guest-${socket.id.slice(-4)}`;
+    }
+
     console.log(`${username} joined room ${roomId}`);
+
     socket.join(roomId);
 
     if (!roomUsers[roomId]) roomUsers[roomId] = [];
     roomUsers[roomId].push({ username, socketId: socket.id });
 
-    io.to(roomId).emit('room-users', roomUsers[roomId]);
+    // Yeni qoşulana otaqdakı istifadəçilərin siyahısı
+    io.to(socket.id).emit('room-users', roomUsers[roomId]);
+
+    // Digərlərinə xəbər ver
     socket.to(roomId).emit('user-joined', { username, socketId: socket.id });
+
+    // Bütün otağa yenilənmiş istifadəçi siyahısı
+    io.to(roomId).emit('room-users', roomUsers[roomId]);
   });
 
-  // WebRTC events
+  // WebRTC signaling
   socket.on('offer', (data) => {
     socket.to(data.roomId).emit('offer', data);
   });
@@ -75,18 +87,17 @@ io.on('connection', (socket) => {
     socket.to(data.roomId).emit('ice-candidate', data);
   });
 
-  // Whiteboard draw event
-  socket.on('draw', ({ roomId, x0, y0, x1, y1, color, lineWidth }) => {
-    socket.to(roomId).emit('draw', { x0, y0, x1, y1, color, lineWidth });
+  // Whiteboard events
+  socket.on('draw', ({ roomId, ...coords }) => {
+    socket.to(roomId).emit('draw', coords);
   });
 
-  // Whiteboard clear (silgi) event
   socket.on('clear', (roomId) => {
     console.log(`🧹 Clear requested for room: ${roomId}`);
     socket.to(roomId).emit('clear');
   });
 
-  // Disconnecting
+  // İstifadəçi ayrılır
   socket.on('disconnecting', () => {
     const rooms = Array.from(socket.rooms).filter(r => r !== socket.id);
     rooms.forEach(roomId => {
@@ -99,13 +110,13 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Disconnected
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
 
-// SERVER START
-server.listen(3001, () => {
-  console.log('Server running on port 3001');
+// SERVERİ START ET
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
