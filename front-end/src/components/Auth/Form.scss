@@ -1,15 +1,22 @@
 body {
-    background-color: rgb(179, 254, 184);
+    background-color: rgb(173, 255, 179);
 }
 
 .form {
-    max-width: 400px;
-    margin: 50px auto;
+    max-width: 500px;
+    margin: 80px auto;
     padding: 30px;
     border: 1px solid #ddd;
+    background-color: rgba(255, 255, 255, 0.521);
     border-radius: 8px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 2px 2px 10px rgb(0, 0, 0);
     font-family: Arial, sans-serif;
+    .login {
+        background-color: rgba(255, 19, 19, 0.687);
+    }
+    .login:hover {
+        background-color: red;
+    }
 }
 
 .form h2 {
@@ -23,7 +30,7 @@ body {
 }
 
 .form input {
-    padding: 10px;
+    padding: 16px;
     margin-bottom: 15px;
     border-radius: 5px;
     border: 1px solid #ccc;
@@ -31,7 +38,7 @@ body {
 
 .form button {
     padding: 10px;
-    background-color: #4caf50;
+    background-color: #4c74af;
     color: white;
     border: none;
     border-radius: 5px;
@@ -39,7 +46,7 @@ body {
 }
 
 .form button:hover {
-    background-color: #45a049;
+    background-color: #454ca0;
 }
 
 .form p {

@@ -57,7 +57,7 @@ function Login() {
           placeholder="Password"
           required
         />
-        <button type="submit" disabled={loading}>
+        <button className='login' type="submit" disabled={loading}>
           {loading ? "Logging in..." : "Login"}
         </button>
         <p>Don't have an account? <Link to={"/register"}>Register</Link></p>

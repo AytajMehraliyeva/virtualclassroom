@@ -26,8 +26,13 @@ function VideoCall() {
   const [messages, setMessages] = useState([]);
 
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
-  const [namePromptOpen, setNamePromptOpen] = useState(username === "");
 
+  // --- Message delete handler
+  const handleDeleteMessage = (index) => {
+    setMessages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // --- Create peer connection
   function createPeerConnection() {
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -40,30 +45,26 @@ function VideoCall() {
     };
 
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
     };
 
     return pc;
   }
 
+  // --- Handlers for SDP and ICE
   async function handleOffer({ sdp }) {
     pcRef.current = createPeerConnection();
 
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
+    const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localStreamRef.current = localStream;
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
-
-    localStream.getTracks().forEach((track) => {
-      pcRef.current.addTrack(track, localStream);
-    });
+    localStream.getTracks().forEach((track) => pcRef.current.addTrack(track, localStream));
 
     await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
     const answer = await pcRef.current.createAnswer();
     await pcRef.current.setLocalDescription(answer);
-
     socketRef.current.emit("answer", { sdp: answer, roomId });
     setStarted(true);
   }
@@ -77,18 +78,14 @@ function VideoCall() {
     pcRef.current.addIceCandidate(iceCandidate);
   }
 
+  // --- Start Call
   const startCall = async () => {
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
+    const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localStreamRef.current = localStream;
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
     pcRef.current = createPeerConnection();
-    localStream.getTracks().forEach((track) => {
-      pcRef.current.addTrack(track, localStream);
-    });
+    localStream.getTracks().forEach((track) => pcRef.current.addTrack(track, localStream));
 
     const offer = await pcRef.current.createOffer();
     await pcRef.current.setLocalDescription(offer);
@@ -96,6 +93,7 @@ function VideoCall() {
     setStarted(true);
   };
 
+  // --- End Call
   const endCallCleanup = () => {
     if (pcRef.current) {
       pcRef.current.close();
@@ -124,6 +122,7 @@ function VideoCall() {
     setMessages([]);
   };
 
+  // --- Toggle Audio/Video
   const toggleAudio = () => {
     if (localStreamRef.current) {
       const enabled = localStreamRef.current.getAudioTracks()[0].enabled;
@@ -140,6 +139,7 @@ function VideoCall() {
     }
   };
 
+  // --- Screen Share
   const toggleScreenShare = async () => {
     if (!sharingScreen) {
       try {
@@ -151,10 +151,7 @@ function VideoCall() {
         if (sender) await sender.replaceTrack(screenTrack);
 
         if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
-
-        screenTrack.onended = () => {
-          stopScreenShare();
-        };
+        screenTrack.onended = stopScreenShare;
 
         setSharingScreen(true);
       } catch (err) {
@@ -167,7 +164,6 @@ function VideoCall() {
 
   const stopScreenShare = async () => {
     if (!sharingScreen) return;
-
     const localStream = localStreamRef.current;
     if (!localStream) return;
 
@@ -176,7 +172,6 @@ function VideoCall() {
     if (sender) await sender.replaceTrack(videoTrack);
 
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
-
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = null;
@@ -185,6 +180,7 @@ function VideoCall() {
     setSharingScreen(false);
   };
 
+  // --- Chat send
   const handleSendMessage = (text) => {
     if (!text.trim()) return;
     const message = { username, text };
@@ -192,9 +188,9 @@ function VideoCall() {
     setMessages((prev) => [...prev, message]);
   };
 
-  const renderUsers = () => {
-    if (users.length === 0) return null;
-    return (
+  // --- User list render
+  const renderUsers = () => (
+    users.length > 0 && (
       <div className="users-list">
         <h4>Users in room:</h4>
         {users.map((user) => (
@@ -206,29 +202,24 @@ function VideoCall() {
           </div>
         ))}
       </div>
-    );
-  };
+    )
+  );
 
+  // --- useEffect
   useEffect(() => {
     socketRef.current = io(SOCKET_SERVER_URL);
-
     socketRef.current.emit("join-room", { roomId, username });
 
-    socketRef.current.on("room-users", (usersList) => {
-      setUsers(usersList);
-    });
-
+    socketRef.current.on("room-users", setUsers);
     socketRef.current.on("offer", handleOffer);
     socketRef.current.on("answer", handleAnswer);
     socketRef.current.on("ice-candidate", handleNewICECandidateMsg);
-
-    socketRef.current.on("user-left", ({ socketId }) => {
-      setUsers((prevUsers) => prevUsers.filter((u) => u.socketId !== socketId));
-    });
-
-    socketRef.current.on("new-message", (message) => {
-      setMessages((prev) => [...prev, message]);
-    });
+    socketRef.current.on("user-left", ({ socketId }) =>
+      setUsers((prev) => prev.filter((u) => u.socketId !== socketId))
+    );
+    socketRef.current.on("new-message", (message) =>
+      setMessages((prev) => [...prev, message])
+    );
 
     return () => {
       endCallCleanup();
@@ -236,6 +227,7 @@ function VideoCall() {
     };
   }, [roomId, username]);
 
+  // --- Render
   return (
     <div className="call-container">
       <div className="video-area">
@@ -243,11 +235,16 @@ function VideoCall() {
 
         {!started && (
           <>
-            <button onClick={startCall} className="start-btn">
-              Start Call
-            </button>
+            <button onClick={startCall} className="start-btn">Start Call</button>
             <p>
-              Share this link: <a href={`${window.location.origin}/video/${roomId}`} target="_blank" rel="noreferrer">{window.location.origin}/video/{roomId}</a>
+              Share this link:{" "}
+              <a
+                href={`${window.location.origin}/video/${roomId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {window.location.origin}/video/{roomId}
+              </a>
             </p>
           </>
         )}
@@ -265,16 +262,29 @@ function VideoCall() {
               <button onClick={endCall} className="end-btn">End Call</button>
             </div>
 
-            <div className="extras-controls" style={{ marginTop: "10px" }}>
-              <button onClick={() => setChatOpen((prev) => !prev)}>{chatOpen ? "Close Chat" : "Open Chat"}</button>
-              <button onClick={() => setWhiteboardOpen((prev) => !prev)} style={{ marginLeft: "10px" }}>{whiteboardOpen ? "Close Whiteboard" : "Open Whiteboard"}</button>
+            <div className="extras-controls">
+              <button onClick={() => setChatOpen((prev) => !prev)}>
+                {chatOpen ? "Close Chat" : "Open Chat"}
+              </button>
+              <button onClick={() => setWhiteboardOpen((prev) => !prev)}>
+                {whiteboardOpen ? "Close Whiteboard" : "Open Whiteboard"}
+              </button>
             </div>
 
-            {chatOpen && <Chat messages={messages} onSend={handleSendMessage} username={username} />}
-
-            {whiteboardOpen && <Whiteboard socket={socketRef.current} roomId={roomId} />}
-
             {renderUsers()}
+
+            {chatOpen && (
+              <Chat
+                messages={messages}
+                onSend={handleSendMessage}
+                onDelete={handleDeleteMessage}
+                username={username}
+              />
+            )}
+
+            {whiteboardOpen && (
+              <Whiteboard socket={socketRef.current} roomId={roomId} />
+            )}
           </>
         )}
       </div>
