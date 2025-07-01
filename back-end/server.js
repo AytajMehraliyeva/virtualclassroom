@@ -40,20 +40,19 @@ app.get('/', (req, res) => {
 // DATABASE
 mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // --- SOCKET.IO LOGIC ---
 
-// Otaqdakı istifadəçiləri saxlayan obyekt
 const roomUsers = {};
 
 // CONNECTION
 io.on('connection', (socket) => {
-  console.log(`🟢 User connected: ${socket.id}`);
+  console.log(`User connected: ${socket.id}`);
 
   // İstifadəçi otağa qoşulur
   socket.on('join-room', ({ roomId, username, avatar }) => {
-    console.log(`✅ ${username} joined room ${roomId}`);
+    console.log(`${username} joined room ${roomId}`);
     socket.join(roomId);
 
     if (!roomUsers[roomId]) roomUsers[roomId] = [];
@@ -95,7 +94,7 @@ io.on('connection', (socket) => {
         roomUsers[roomId] = roomUsers[roomId].filter(u => u.socketId !== socket.id);
         io.to(roomId).emit('room-users', roomUsers[roomId]);
         socket.to(roomId).emit('user-left', { socketId: socket.id });
-        console.log(`⚠️ User ${socket.id} left room ${roomId}`);
+        console.log(`User ${socket.id} left room ${roomId}`);
       }
     });
   });
@@ -108,5 +107,5 @@ io.on('connection', (socket) => {
 
 // SERVER START
 server.listen(3001, () => {
-  console.log('🚀 Server running on port 3001');
+  console.log('Server running on port 3001');
 });
