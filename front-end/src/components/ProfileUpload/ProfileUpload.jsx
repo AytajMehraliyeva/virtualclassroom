@@ -10,7 +10,7 @@ const ProfileUpload = () => {
     formData.append('avatar', selected);
 
     try {
-      const res = await fetch('http://localhost:3001/api/upload/profile', {
+      const res = await fetch('https://virtualclassroom-sb1c.onrender.com/api/upload/profile', {
         method: 'POST',
         body: formData
       });
@@ -26,7 +26,7 @@ const ProfileUpload = () => {
       <h2>Upload Profile Photo</h2>
       <input type="file" onChange={(e) => setSelected(e.target.files[0])} />
       <button onClick={handleUpload}>Upload</button>
-      {uploaded && <img src={`http://localhost:3001${uploaded}`} alt="Profile" width={100} />}
+      {uploaded && <img src={`https://virtualclassroom-sb1c.onrender.com${uploaded}`} alt="Profile" width={100} />}
     </div>
   );
 };

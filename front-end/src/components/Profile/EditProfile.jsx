@@ -1,4 +1,3 @@
-// src/components/EditProfile/EditProfile.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -11,10 +10,10 @@ function EditProfile() {
   const token = localStorage.getItem('token');
 
   useEffect(() => {
-    // Me endpointindən user məlumatını al
+
     const fetchProfile = async () => {
       try {
-        const res = await axios.get('http://localhost:3001/api/user/me', {
+        const res = await axios.get('https://virtualclassroom-sb1c.onrender.com/api/user/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUsername(res.data.username);
@@ -37,7 +36,7 @@ function EditProfile() {
       }
 
       const res = await axios.post(
-        'http://localhost:3001/api/user/update-profile',
+        'https://virtualclassroom-sb1c.onrender.com',
         formData,
         {
           headers: {
@@ -73,7 +72,7 @@ function EditProfile() {
           <label>Profile Picture:</label><br/>
           {profilePicture && (
             <img 
-              src={`http://localhost:3001${profilePicture}`} 
+              src={`https://virtualclassroom-sb1c.onrender.com${profilePicture}`} 
               alt="Profile" 
               width="100" 
             />

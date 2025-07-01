@@ -5,7 +5,7 @@ import "./VideoCall.scss";
 import Chat from "../chat/Chat";
 import Whiteboard from "../Whiteboard/Whiteboard";
 
-const SOCKET_SERVER_URL = "http://localhost:3001";
+const SOCKET_SERVER_URL = "https://virtualclassroom-sb1c.onrender.com";
 
 function VideoCall() {
   const { roomId } = useParams();
