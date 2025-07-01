@@ -1,22 +1,20 @@
+require('dotenv').config();
 const express = require('express');
-const http = require('http');
-const cors = require('cors');
 const mongoose = require('mongoose');
+const cors = require('cors');
+const http = require('http');
 const { Server } = require('socket.io');
-const Message = require('./models/Message');
 
+// ROUTES
+const authRoutes = require('./routes/authRoutes');
+const roomRoutes = require('./routes/roomRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const userRoutes = require('./routes/userRoutes');
+
+// APP
 const app = express();
-app.use(cors());
-app.use(express.json());
-
-// MongoDB bağlantısı
-mongoose.connect('mongodb+srv://tu7lzxxdc:aytac123@cluster0.fvv4h2i.mongodb.net/', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
-
-// HTTP və Socket.io server qurulması
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -24,39 +22,91 @@ const io = new Server(server, {
   }
 });
 
-// REST API - otağa aid mesajları çək
-app.get('/messages/:roomId', async (req, res) => {
-  const messages = await Message.find({ room: req.params.roomId });
-  res.json(messages);
+// MIDDLEWARE
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static('uploads'));
+
+// ROUTES
+app.use('/api/auth', authRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/user', userRoutes);
+
+app.get('/', (req, res) => {
+  res.send('✅ Virtual Classroom API is running');
 });
 
-// Socket.io hadisələri
+// DATABASE
+mongoose.connect(process.env.MONGO_URL)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// --- SOCKET.IO LOGIC ---
+
+// Otaqdakı istifadəçiləri saxlayan obyekt
+const roomUsers = {};
+
+// CONNECTION
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  console.log(`🟢 User connected: ${socket.id}`);
 
-  socket.on('join_room', (room) => {
-    socket.join(room);
-    console.log(`User ${socket.id} joined room: ${room}`);
+  // İstifadəçi otağa qoşulur
+  socket.on('join-room', ({ roomId, username, avatar }) => {
+    console.log(`✅ ${username} joined room ${roomId}`);
+    socket.join(roomId);
+
+    if (!roomUsers[roomId]) roomUsers[roomId] = [];
+    roomUsers[roomId].push({ username, socketId: socket.id });
+
+    io.to(roomId).emit('room-users', roomUsers[roomId]);
+    socket.to(roomId).emit('user-joined', { username, socketId: socket.id });
   });
 
-  socket.on('send_message', async (data) => {
-    const newMsg = new Message({
-      room: data.room,
-      username: data.username,
-      message: data.message
+  // WebRTC events
+  socket.on('offer', (data) => {
+    socket.to(data.roomId).emit('offer', data);
+  });
+
+  socket.on('answer', (data) => {
+    socket.to(data.roomId).emit('answer', data);
+  });
+
+  socket.on('ice-candidate', (data) => {
+    socket.to(data.roomId).emit('ice-candidate', data);
+  });
+
+  // Whiteboard draw event
+  socket.on('draw', ({ roomId, x0, y0, x1, y1, color, lineWidth }) => {
+    socket.to(roomId).emit('draw', { x0, y0, x1, y1, color, lineWidth });
+  });
+
+  // Whiteboard clear (silgi) event
+  socket.on('clear', (roomId) => {
+    console.log(`🧹 Clear requested for room: ${roomId}`);
+    socket.to(roomId).emit('clear');
+  });
+
+  // Disconnecting
+  socket.on('disconnecting', () => {
+    const rooms = Array.from(socket.rooms).filter(r => r !== socket.id);
+    rooms.forEach(roomId => {
+      if (roomUsers[roomId]) {
+        roomUsers[roomId] = roomUsers[roomId].filter(u => u.socketId !== socket.id);
+        io.to(roomId).emit('room-users', roomUsers[roomId]);
+        socket.to(roomId).emit('user-left', { socketId: socket.id });
+        console.log(`⚠️ User ${socket.id} left room ${roomId}`);
+      }
     });
-
-    await newMsg.save();
-    io.to(data.room).emit('receive_message', newMsg);
   });
 
+  // Disconnected
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
 
-// Render-da düzgün port üçün
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+// SERVER START
+server.listen(3001, () => {
+  console.log('🚀 Server running on port 3001');
 });

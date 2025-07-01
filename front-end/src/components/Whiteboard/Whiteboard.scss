@@ -1,0 +1,43 @@
+.whiteboard-container {
+    background-color: white;
+    border: 1px solid white;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 20px;
+    box-shadow: 10px 5px 5px rgba(0, 0, 0, 0.354);
+    label {
+        font-size: 16px;
+        padding: 5px;
+        text-align: center;
+        align-items: baseline;
+        display: flex;
+        input {
+            width: 120px;
+            border: none;
+            background-color: white;
+        }
+    }
+    button {
+        padding: 15px;
+        background-color: rgb(255, 73, 73);
+        margin: 6px;
+        border: none;
+        font-size: 12px;
+        color: white;
+        border-radius: 5px;
+    }
+    button:hover {
+        background-color: rgb(201, 0, 0);
+    }
+    .eraser {
+        background-color: rgb(123, 255, 123);
+    }
+    .eraser:hover {
+        background-color: rgb(0, 184, 0);
+    }
+    .color {
+        width: 20px;
+        border: none;
+        background-color: white;
+    }
+}
