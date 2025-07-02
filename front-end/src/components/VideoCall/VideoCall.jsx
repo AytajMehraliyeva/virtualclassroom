@@ -9,6 +9,8 @@ const SOCKET_SERVER_URL = "https://virtualclassroom-sb1c.onrender.com";
 
 function VideoCall() {
   const { roomId } = useParams();
+
+  // Refs
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
@@ -17,6 +19,7 @@ function VideoCall() {
   const screenStreamRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
 
+  // States
   const [started, setStarted] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
@@ -26,6 +29,36 @@ function VideoCall() {
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
+  const [inputName, setInputName] = useState("");
+
+  useEffect(() => {
+    if (username) {
+      localStorage.setItem("username", username);
+    }
+  }, [username]);
+
+  useEffect(() => {
+    if (!username) return;
+
+    socketRef.current = io(SOCKET_SERVER_URL);
+    socketRef.current.emit("join-room", { roomId, username });
+
+    socketRef.current.on("room-users", setUsers);
+    socketRef.current.on("offer", handleOffer);
+    socketRef.current.on("answer", handleAnswer);
+    socketRef.current.on("ice-candidate", handleNewICECandidateMsg);
+    socketRef.current.on("user-left", ({ socketId }) =>
+      setUsers((prev) => prev.filter((u) => u.socketId !== socketId))
+    );
+    socketRef.current.on("new-message", (message) =>
+      setMessages((prev) => [...prev, message])
+    );
+
+    return () => {
+      endCallCleanup();
+      socketRef.current.disconnect();
+    };
+  }, [roomId, username]);
 
   const handleDeleteMessage = (index) => {
     setMessages((prev) => prev.filter((_, i) => i !== index));
@@ -227,48 +260,36 @@ function VideoCall() {
     setMessages((prev) => [...prev, message]);
   };
 
-  const renderUsers = () => (
-    users.length > 0 && (
-      <div className="users-list">
-        <h4>Users in room:</h4>
-        {users.map((user) => (
-          <div
-            key={user.socketId}
-            className={user.username === username ? "user-self" : "user"}
-          >
-            {user.username}
-          </div>
-        ))}
+  if (!username) {
+    return (
+      <div className="username-prompt-container">
+        <h2>Enter your name to join room: {roomId}</h2>
+        <input
+          type="text"
+          placeholder="Your name"
+          value={inputName}
+          onChange={(e) => setInputName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && inputName.trim()) {
+              setUsername(inputName.trim());
+            }
+          }}
+        />
+        <button
+          onClick={() => {
+            if (inputName.trim()) setUsername(inputName.trim());
+          }}
+        >
+          Join
+        </button>
       </div>
-    )
-  );
-
-  useEffect(() => {
-    socketRef.current = io(SOCKET_SERVER_URL);
-
-    socketRef.current.emit("join-room", { roomId, username });
-
-    socketRef.current.on("room-users", setUsers);
-    socketRef.current.on("offer", handleOffer);
-    socketRef.current.on("answer", handleAnswer);
-    socketRef.current.on("ice-candidate", handleNewICECandidateMsg);
-    socketRef.current.on("user-left", ({ socketId }) =>
-      setUsers((prev) => prev.filter((u) => u.socketId !== socketId))
     );
-    socketRef.current.on("new-message", (message) =>
-      setMessages((prev) => [...prev, message])
-    );
-
-    return () => {
-      endCallCleanup();
-      socketRef.current.disconnect();
-    };
-  }, [roomId, username]);
+  }
 
   return (
     <div className="call-container">
       <div className="video-area">
-        <h2>Room</h2>
+        <h2>Room: {roomId}</h2>
 
         {!started && (
           <>
@@ -309,7 +330,19 @@ function VideoCall() {
               </button>
             </div>
 
-            {renderUsers()}
+            {users.length > 0 && (
+              <div className="users-list">
+                <h4>Users in room:</h4>
+                {users.map((user) => (
+                  <div
+                    key={user.socketId}
+                    className={user.username === username ? "user-self" : "user"}
+                  >
+                    {user.username}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {chatOpen && (
               <Chat
