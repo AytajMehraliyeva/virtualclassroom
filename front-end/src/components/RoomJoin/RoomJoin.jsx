@@ -13,7 +13,7 @@ function RoomJoin() {
       return;
     }
 
-    const res = await fetch('http://localhost:3001/api/rooms/create', {
+    const res = await fetch('https://virtualclassroom-sb1c.onrender.com/api/rooms/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
