@@ -5,7 +5,7 @@ import "./VideoCall.scss";
 import Chat from "../chat/Chat";
 import Whiteboard from "../Whiteboard/Whiteboard";
 
-const SOCKET_SERVER_URL = "https://virtualclassroom-sb1c.onrender.com";
+const SOCKET_SERVER_URL = "https://localhost:3001";
 
 function VideoCall() {
   const { roomId } = useParams();
@@ -25,18 +25,7 @@ function VideoCall() {
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [messages, setMessages] = useState([]);
 
-  const [username, setUsername] = useState(() => {
-    return localStorage.getItem("username") || "";
-  });
-
-  // 👉 Always ensure username is filled in localStorage
-  useEffect(() => {
-    if (!username || username.trim() === "") {
-      const name = prompt("Enter your name") || `Guest-${Math.floor(Math.random() * 1000)}`;
-      setUsername(name);
-      localStorage.setItem("username", name);
-    }
-  }, [username]);
+  const [username, setUsername] = useState(localStorage.getItem("username") || "");
 
   // --- Message delete handler
   const handleDeleteMessage = (index) => {
@@ -64,7 +53,7 @@ function VideoCall() {
     return pc;
   }
 
-  // --- SDP and ICE handlers
+  // --- Handlers for SDP and ICE
   async function handleOffer({ sdp }) {
     pcRef.current = createPeerConnection();
 
@@ -128,7 +117,7 @@ function VideoCall() {
     setSharingScreen(false);
     setAudioEnabled(true);
     setVideoEnabled(true);
-    socketRef.current.emit("leave-room", { roomId, username });
+    socketRef.current.emit("leave-room", roomId, username);
     setUsers([{ username, socketId: socketRef.current.id }]);
     setMessages([]);
   };
@@ -218,7 +207,6 @@ function VideoCall() {
 
   // --- useEffect
   useEffect(() => {
-    if (!username) return; // Wait for prompt to finish
     socketRef.current = io(SOCKET_SERVER_URL);
     socketRef.current.emit("join-room", { roomId, username });
 
@@ -304,4 +292,4 @@ function VideoCall() {
   );
 }
 
-export default VideoCall;
+export default VideoCall;  

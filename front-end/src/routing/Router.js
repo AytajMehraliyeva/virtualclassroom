@@ -1,6 +1,5 @@
 import Login from "../components/Auth/Login";
 import Register from "../components/Auth/Register";
-import Chat from "../components/chat/Chat";
 import EditProfile from "../components/Profile/EditProfile";
 import RoomJoin from "../components/RoomJoin/RoomJoin";
 import VideoCall from "../components/VideoCall/VideoCall";

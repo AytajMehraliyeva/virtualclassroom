@@ -13,15 +13,16 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('https://virtualclassroom-sb1c.onrender.com/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      });
+    const res = await fetch('http://localhost:3001/api/auth/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username, email, password }),
+});
+
       const data = await res.json();
       if (data.token) {
         localStorage.setItem('token', data.token);
-        navigate('/room');     // YÖNLENDİRME
+        navigate('/room');  
       } else {
         setMessage(data.error || 'Error registering');
       }
