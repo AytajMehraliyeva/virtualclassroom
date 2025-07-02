@@ -34,12 +34,12 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/user', userRoutes);
 
 app.get('/', (req, res) => {
-  res.send('✅ Virtual Classroom API is running');
+  res.send('Virtual Classroom API is running');
 });
 
 // DATABASE
 mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
 // --- SOCKET.IO LOGIC ---
@@ -80,6 +80,12 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('clear');
   });
 
+  // CHAT MESSAGE EVENT
+  socket.on('send-message', (message) => {
+    // message = { username, text, roomId }
+    socket.to(message.roomId).emit('new-message', message);
+  });
+
   socket.on('disconnecting', () => {
     const rooms = Array.from(socket.rooms).filter(r => r !== socket.id);
     rooms.forEach(roomId => {
@@ -99,5 +105,5 @@ io.on('connection', (socket) => {
 
 // SERVER START
 server.listen(3001, () => {
-  console.log('🚀 Server running on port 3001');
+  console.log('Server running on port 3001');
 });

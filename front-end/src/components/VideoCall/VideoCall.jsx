@@ -5,7 +5,7 @@ import "./VideoCall.scss";
 import Chat from "../chat/Chat";
 import Whiteboard from "../Whiteboard/Whiteboard";
 
-const SOCKET_SERVER_URL = "https://localhost:3001";
+const SOCKET_SERVER_URL = "https://virtualclassroom-sb1c.onrender.com";
 
 function VideoCall() {
   const { roomId } = useParams();
@@ -15,6 +15,7 @@ function VideoCall() {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
 
   const [started, setStarted] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -24,15 +25,24 @@ function VideoCall() {
   const [chatOpen, setChatOpen] = useState(false);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [messages, setMessages] = useState([]);
-
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
 
-  // --- Message delete handler
   const handleDeleteMessage = (index) => {
     setMessages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // --- Create peer connection
+  function resetPeerConnection() {
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch (e) {
+        console.error(e);
+      }
+      pcRef.current = null;
+    }
+    pendingCandidatesRef.current = [];
+  }
+
   function createPeerConnection() {
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -53,8 +63,11 @@ function VideoCall() {
     return pc;
   }
 
-  // --- Handlers for SDP and ICE
   async function handleOffer({ sdp }) {
+    console.log("Received OFFER");
+
+    resetPeerConnection();
+
     pcRef.current = createPeerConnection();
 
     const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -63,6 +76,11 @@ function VideoCall() {
     localStream.getTracks().forEach((track) => pcRef.current.addTrack(track, localStream));
 
     await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+
+    while (pendingCandidatesRef.current.length > 0) {
+      await pcRef.current.addIceCandidate(pendingCandidatesRef.current.shift());
+    }
+
     const answer = await pcRef.current.createAnswer();
     await pcRef.current.setLocalDescription(answer);
     socketRef.current.emit("answer", { sdp: answer, roomId });
@@ -70,16 +88,40 @@ function VideoCall() {
   }
 
   async function handleAnswer({ sdp }) {
+    console.log("Received ANSWER");
+
+    if (!pcRef.current) {
+      console.warn("No PeerConnection for answer");
+      return;
+    }
+
     await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+
+    while (pendingCandidatesRef.current.length > 0) {
+      await pcRef.current.addIceCandidate(pendingCandidatesRef.current.shift());
+    }
   }
 
   function handleNewICECandidateMsg({ candidate }) {
+    if (!pcRef.current) {
+      console.warn("No PeerConnection yet, ignoring ICE.");
+      return;
+    }
+
     const iceCandidate = new RTCIceCandidate(candidate);
-    pcRef.current.addIceCandidate(iceCandidate);
+
+    if (pcRef.current.remoteDescription && pcRef.current.remoteDescription.type) {
+      pcRef.current.addIceCandidate(iceCandidate).catch((e) =>
+        console.error("Error adding ICE candidate:", e)
+      );
+    } else {
+      pendingCandidatesRef.current.push(iceCandidate);
+    }
   }
 
-  // --- Start Call
   const startCall = async () => {
+    resetPeerConnection();
+
     const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localStreamRef.current = localStream;
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
@@ -93,7 +135,6 @@ function VideoCall() {
     setStarted(true);
   };
 
-  // --- End Call
   const endCallCleanup = () => {
     if (pcRef.current) {
       pcRef.current.close();
@@ -107,6 +148,7 @@ function VideoCall() {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
       screenStreamRef.current = null;
     }
+    pendingCandidatesRef.current = [];
   };
 
   const endCall = () => {
@@ -122,7 +164,6 @@ function VideoCall() {
     setMessages([]);
   };
 
-  // --- Toggle Audio/Video
   const toggleAudio = () => {
     if (localStreamRef.current) {
       const enabled = localStreamRef.current.getAudioTracks()[0].enabled;
@@ -139,7 +180,6 @@ function VideoCall() {
     }
   };
 
-  // --- Screen Share
   const toggleScreenShare = async () => {
     if (!sharingScreen) {
       try {
@@ -180,15 +220,13 @@ function VideoCall() {
     setSharingScreen(false);
   };
 
-  // --- Chat send
   const handleSendMessage = (text) => {
     if (!text.trim()) return;
-    const message = { username, text };
+    const message = { username, text, roomId };
     socketRef.current.emit("send-message", message);
     setMessages((prev) => [...prev, message]);
   };
 
-  // --- User list render
   const renderUsers = () => (
     users.length > 0 && (
       <div className="users-list">
@@ -205,9 +243,9 @@ function VideoCall() {
     )
   );
 
-  // --- useEffect
   useEffect(() => {
     socketRef.current = io(SOCKET_SERVER_URL);
+
     socketRef.current.emit("join-room", { roomId, username });
 
     socketRef.current.on("room-users", setUsers);
@@ -227,7 +265,6 @@ function VideoCall() {
     };
   }, [roomId, username]);
 
-  // --- Render
   return (
     <div className="call-container">
       <div className="video-area">
@@ -253,6 +290,7 @@ function VideoCall() {
           <>
             <div className="video-wrapper">
               <video ref={localVideoRef} autoPlay muted playsInline className="video-player" />
+              <video ref={remoteVideoRef} autoPlay playsInline className="video-player" />
             </div>
 
             <div className="controls">
@@ -292,4 +330,4 @@ function VideoCall() {
   );
 }
 
-export default VideoCall;  
+export default VideoCall;

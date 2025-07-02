@@ -9,14 +9,14 @@ export const AppProvider = ({ children }) => {
   const [username, setUsername] = useState('User' + Math.floor(Math.random() * 1000));
 
   useEffect(() => {
-    const newSocket = io('https://localhost:3001');
+    const newSocket = io('https://virtualclassroom-sb1c.onrender.com');
     setSocket(newSocket);
 
     return () => newSocket.close();
   }, []);
 
   const createRoom = async () => {
-    const res = await fetch('https://localhost:3001/api/rooms/create', {
+    const res = await fetch('https://virtualclassroom-sb1c.onrender.com/api/rooms/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('token') },
     });
